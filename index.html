@@ -458,6 +458,7 @@
     <div class="modal-progress"><span id="progBar" style="width:33%"></span></div>
 
     <form id="consultForm" novalidate>
+      <input type="text" name="_honey" id="fHoney" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;height:0;width:0;opacity:0" aria-hidden="true">
       <!-- STEP 1: Contact -->
       <div class="fstep active" data-step="1" data-title="Your Details">
         <div class="field" data-req>
@@ -588,7 +589,7 @@
           </button>
           <button type="button" class="btn btn-navy" id="submitEmail">Send via Email</button>
         </div>
-        <p class="modal-note">Your details open in WhatsApp or your email app — nothing is sent until you press send there.</p>
+        <p class="modal-note">Choose WhatsApp to chat with us directly, or send by email — your request goes straight to our team.</p>
       </div>
 
       <!-- DONE -->
@@ -596,7 +597,7 @@
         <div class="done-wrap">
           <div class="done-ico"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#2E8B75" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
           <h3>Thank you!</h3>
-          <p>Your consultation request has been prepared. Just press <strong>send</strong> in WhatsApp or your email app and we'll get back to you within one business day.</p>
+          <p>Your consultation request has been sent. We'll get back to you within one business day.</p>
           <button type="button" class="btn btn-pink" id="doneClose">Done</button>
         </div>
       </div>
@@ -718,11 +719,49 @@
     window.open('https://wa.me/12462341152?text=' + encodeURIComponent(buildMessage()), '_blank');
     showStep(4);
   });
-  document.getElementById('submitEmail').addEventListener('click', () => {
+  const FORM_ENDPOINT = 'https://formsubmit.co/ajax/info@tidyclean.org';
+  document.getElementById('submitEmail').addEventListener('click', async () => {
     if (!validateStep(3)) return;
-    const subject = 'New Consultation Request — ' + getVal('fName');
-    window.location.href = 'mailto:info@intouchbarbados.com?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(buildMessage());
-    showStep(4);
+    const btn = document.getElementById('submitEmail');
+    const hp = document.getElementById('fHoney');
+    if (hp && hp.value) { showStep(4); return; } // bot caught by honeypot
+    const orig = btn.textContent;
+    btn.textContent = 'Sending…';
+    btn.disabled = true;
+    const payload = {
+      _subject: 'New Consultation Request — ' + getVal('fName'),
+      _template: 'table',
+      _captcha: 'false',
+      'Name': getVal('fName'),
+      'Phone / WhatsApp': getVal('fPhone'),
+      'Email': getVal('fEmail'),
+      'Property Type': getVal('fType'),
+      'Parish': getVal('fParish'),
+      'Address': getVal('fAddress'),
+      'Size': getVal('fSqft'),
+      'Bedrooms': getVal('fBeds'),
+      'Service Level': getChoice('service'),
+      'Currently on Airbnb': getChoice('listed'),
+      'Start Timeline': getVal('fStart'),
+      'Notes': getVal('fNotes')
+    };
+    try {
+      const res = await fetch(FORM_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('send failed');
+      showStep(4);
+    } catch (err) {
+      // Fallback: open the visitor's email app instead
+      const subject = 'New Consultation Request — ' + getVal('fName');
+      window.location.href = 'mailto:info@tidyclean.org?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(buildMessage());
+      showStep(4);
+    } finally {
+      btn.textContent = orig;
+      btn.disabled = false;
+    }
   });
 </script>
 </body>
